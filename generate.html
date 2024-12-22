@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Price Select and QR Code Generator</title>
+    <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.11.2/jquery.min.js"></script>
+    <script src="https://unpkg.com/html5-qrcode/minified/html5-qrcode.min.js"></script> <!-- Add QR scanner library -->
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+
+        select {
+            padding: 5px;
+            margin-bottom: 10px;
+        }
+
+        button {
+            padding: 8px 16px;
+            margin-top: 10px;
+            cursor: pointer;
+        }
+
+        #qrcode {
+            margin-top: 20px;
+        }
+
+        #barcode {
+            display: none;
+        }
+
+        #reader {
+            width: 100%;
+            max-width: 600px;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <h1>Price Select and QR Code Generator</h1>
+
+    <label for="priceSelect">Select Price: </label>
+    <select id="priceSelect">
+        <option value="" disabled selected>Select a Price</option>
+    </select>
+
+    <div id="qrcode"></div>
+    <img id="barcode" src="" alt="QR Code" title="QR Code" width="100" height="100" />
+
+    <div id="reader" style="display:none;"></div> <!-- QR scanner display area -->
+
+    <script>
+        const priceSelect = document.getElementById('priceSelect');
+        const barcodeImg = document.getElementById('barcode');
+        let items = []; // To store the items data
+
+        // Fetch data from MongoDB Realm HTTP Trigger
+        fetch('https://ap-southeast-1.aws.data.mongodb-api.com/app/application-0-fkpmy/endpoint/getAllVouchers')
+            .then(response => response.json())
+            .then(data => {
+                items = data;
+                console.log('Items:', data);
+
+                // Ensure we use the correct field name 'Price' (case-sensitive)
+                const prices = [...new Set(items.map(item => item.Price))]; // Get unique prices
+                prices.forEach(price => {
+                    const option = document.createElement('option');
+                    option.value = price;
+                    option.textContent = `Price ${price}`;
+                    priceSelect.appendChild(option);
+                });
+            })
+            .catch(error => console.error('Error fetching items:', error));
+
+        // Function to generate QR code for the first unused item with the selected price
+        function generateQRCodeForFirstItem(price) {
+            // Make sure you match the correct field names: 'Price' and 'Status'
+            const filteredItems = items.filter(item => item.Price === price && item.Status === 'UNUSED');
+            if (filteredItems.length > 0) {
+                const firstItem = filteredItems[0];
+                updateQRCode(firstItem['Voucher Code']);
+                updateItemStatus(firstItem['_id']); // Change the status to 'used'
+            } else {
+                barcodeImg.style.display = 'none'; // Hide the QR code if no unused items found
+            }
+        }
+
+        // Function to update QR code img source
+        function updateQRCode(code) {
+            // Update the QR code src based on the selected item's code
+            barcodeImg.src = `https://api.qrserver.com/v1/create-qr-code/?data=${encodeURIComponent(code)}&size=100x100`;
+            barcodeImg.style.display = 'block'; // Display the QR code
+        }
+
+        // Function to update the item status to 'used' in MongoDB Realm
+        function updateItemStatus(itemId) {
+            fetch('https://<YOUR_REALM_URL>/updateItemStatus', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ _id: itemId }) // Send _id to identify the item
+            })
+                .then(response => response.json())
+                .then(updatedItem => {
+                    console.log('Item status updated:', updatedItem);
+                    // Optionally update the frontend to reflect the change
+                    const itemIndex = items.findIndex(item => item._id === itemId);
+                    if (itemIndex !== -1) {
+                        items[itemIndex].Status = 'USED'; // Update status locally
+                    }
+                })
+                .catch(error => console.error('Error updating item status:', error));
+        }
+
+        // Initialize the QR Code scanner and stop it after a scan
+        function startQRScanner() {
+            const html5QrCode = new Html5Qrcode("reader");
+
+            html5QrCode.start(
+                { facingMode: "environment" }, // Camera settings for environment (rear camera)
+                {
+                    fps: 10,    // Scan rate
+                    qrbox: 250  // Size of the scanning box
+                },
+                qrCodeMessage => {
+                    console.log("QR Code scanned: ", qrCodeMessage);
+                    // Stop the scanner once a code is scanned
+                    html5QrCode.stop().then(() => {
+                        console.log("QR Scanner stopped.");
+                    }).catch((err) => {
+                        console.error("Error stopping QR scanner: ", err);
+                    });
+
+                    // You can now handle the scanned QR code (like looking up the item)
+                    const scannedCode = qrCodeMessage;
+                    const selectedPrice = parseInt(priceSelect.value, 10);
+                    generateQRCodeForFirstItem(selectedPrice);
+                },
+                errorMessage => {
+                    // Handle any scan error if necessary
+                    console.warn("QR Code scan error: ", errorMessage);
+                }
+            ).catch(err => {
+                console.error("Failed to start QR Code scanner: ", err);
+            });
+        }
+
+        // Start the scanner when the page is loaded
+        window.onload = function () {
+            startQRScanner();
+        };
+
+        // Event listener for price select change
+        priceSelect.addEventListener('change', (event) => {
+            const selectedPrice = parseInt(event.target.value, 10);
+            generateQRCodeForFirstItem(selectedPrice);
+        });
+    </script>
+
+</body>
+
+</html>

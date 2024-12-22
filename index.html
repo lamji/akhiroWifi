@@ -64,6 +64,16 @@
                                 scannedTextElement.textContent = `QR Code Scanned: ${decodedText}`;
                                 qrTextContainer.style.display = 'block';
 
+                                // Disable the "Open QR Code Reader" button after a successful scan
+                                openQrReaderButton.disabled = true;
+
+                                // Stop camera after scan
+                                html5QrCode.stop().then(() => {
+                                    console.log("Camera stopped after successful scan");
+                                }).catch(err => {
+                                    console.error("Error stopping camera:", err);
+                                });
+
                                 // Wait for the user to click the copy button
                                 copyBtn.onclick = () => {
                                     navigator.clipboard.writeText(decodedText).then(function () {
