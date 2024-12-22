@@ -60,6 +60,7 @@
                                 qrbox: { width: 250, height: 250 } // Scanner dimensions
                             },
                             (decodedText, decodedResult) => {
+                                console.log(`QR Code Scanned: ${decodedText}`);
                                 // Handle successful scan
                                 scannedTextElement.textContent = `QR Code Scanned: ${decodedText}`;
                                 qrTextContainer.style.display = 'block';
