@@ -60,9 +60,10 @@
                                 qrbox: { width: 250, height: 250 } // Scanner dimensions
                             },
                             (decodedText, decodedResult) => {
-                                console.log(`QR Code Scanned: ${decodedText}`);
+                                const [voucherCode, id] = decodedText.split('-');
+                                console.log(`QR Code Scanned: ${id}`);
                                 // Handle successful scan
-                                scannedTextElement.textContent = `QR Code Scanned: ${decodedText}`;
+                                scannedTextElement.textContent = `QR Code Scanned: ${voucherCode}`;
                                 qrTextContainer.style.display = 'block';
 
                                 // Disable the "Open QR Code Reader" button after a successful scan
@@ -79,10 +80,32 @@
                                 copyBtn.onclick = () => {
                                     navigator.clipboard.writeText(decodedText).then(function () {
                                         alert("QR Code text copied to clipboard!");
+                                        // // Function to update the item status to 'used' in MongoDB Realm
+                                        function updateItemStatus(itemId) {
+                                            fetch('https://ap-southeast-1.aws.data.mongodb-api.com/app/application-0-fkpmy/endpoint/updateCode', {
+                                                method: 'PUT',
+                                                headers: { 'Content-Type': 'application/json' },
+                                                body: JSON.stringify({ _id: itemId }) // Send _id to identify the item
+                                            })
+                                                .then(response => response.json())
+                                                .then(updatedItem => {
+                                                    console.log('Item status updated:', updatedItem);
+                                                    // Optionally update the frontend to reflect the change
+                                                    const itemIndex = items.findIndex(item => item._id === itemId);
+                                                    if (itemIndex !== -1) {
+                                                        items[itemIndex].Status = 'USED'; // Update status locally
+                                                    }
+                                                })
+                                                .catch(error => console.error('Error updating item status:', error));
+                                        }
+
+                                        updateItemStatus(id);
+
                                     }).catch(function (err) {
                                         console.error("Error copying text: ", err);
                                         alert("Failed to copy text.");
                                     });
+
                                 };
                             },
                             (errorMessage) => {

@@ -52,12 +52,14 @@
 
     <div id="qrcode"></div>
     <img id="barcode" src="" alt="QR Code" title="QR Code" width="100" height="100" />
+    <p id="vcode"></p>
 
     <div id="reader" style="display:none;"></div> <!-- QR scanner display area -->
 
     <script>
         const priceSelect = document.getElementById('priceSelect');
         const barcodeImg = document.getElementById('barcode');
+        const qrCodeDiv = document.getElementById('vcode');
         let items = []; // To store the items data
 
         // Fetch data from MongoDB Realm HTTP Trigger
@@ -87,11 +89,13 @@
                 const codeWithId = `${firstItem['Voucher Code']}-${firstItem['_id']}`; // Combine Voucher Code and _id
                 updateQRCode(codeWithId);
 
+
                 // Prepare JSON object with Voucher Code and _id
                 const qrData = {
                     voucherCode: firstItem['Voucher Code'],
                     _id: firstItem['_id']
                 };
+                qrCodeDiv.innerHTML = qrData.voucherCode
                 console.log("QR Code Data (JSON):", JSON.stringify(qrData)); // Log the JSON data
 
                 // You can also send this data to a server or display it in the UI
